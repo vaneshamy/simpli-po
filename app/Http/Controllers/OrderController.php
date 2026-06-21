@@ -68,4 +68,32 @@ class OrderController extends Controller
             return back()->with('error', 'Gagal memproses pembayaran: ' . $e->getMessage());
         }
     }
+
+    public function callback(Request $request)
+    {
+        // 1. Ambil Server Key untuk dicocokkan dengan Signature Key dari Midtrans
+        $serverKey = env('MIDTRANS_SERVER_KEY');
+        
+        // 2. Buat hash untuk verifikasi keamanan (Rumus standar Midtrans)
+        $hashed = hash('sha512', $request->order_id . $request->status_code . $request->gross_amount . $serverKey);
+        
+        // 3. Pastikan request ini benar-benar datang dari Midtrans
+        if ($hashed == $request->signature_key) {
+            
+            // Cari pesanan di database berdasarkan UUID
+            $order = Order::find($request->order_id);
+            
+            if ($order) {
+                // 4. Update status berdasarkan status transaksi dari Midtrans
+                if ($request->transaction_status == 'capture' || $request->transaction_status == 'settlement') {
+                    $order->update(['status' => 'settlement']); // Lunas
+                } elseif (in_array($request->transaction_status, ['expire', 'cancel', 'deny'])) {
+                    $order->update(['status' => 'failed']); // Gagal/Batal
+                }
+            }
+        }
+        
+        // 5. Beri respons 200 OK ke Midtrans agar mereka tahu notifikasi berhasil diterima
+        return response()->json(['message' => 'Notification successfully processed']);
+    }
 }

@@ -8,3 +8,4 @@ Route::get('/', function () {
 });
 
 Route::post('/checkout', [OrderController::class, 'checkout'])->name('checkout');
+Route::post('/midtrans-callback', [OrderController::class, 'callback']);
