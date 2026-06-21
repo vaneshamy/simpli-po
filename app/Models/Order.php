@@ -9,7 +9,6 @@ class Order extends Model
 {
     use HasUuids; // Mengotomatiskan pembuatan UUID
 
-    // Mengizinkan kolom-kolom ini diisi data dari form
     protected $fillable = [
         'customer_name',
         'whatsapp_number',
@@ -18,4 +17,8 @@ class Order extends Model
         'status',
         'snap_token',
     ];
-}
+        public function items()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+}   
