@@ -71,29 +71,34 @@ class OrderController extends Controller
 
     public function callback(Request $request)
     {
-        // 1. Ambil Server Key untuk dicocokkan dengan Signature Key dari Midtrans
+        // 1. Tangkap "jebakan" tes dari Midtrans agar tidak crash di database UUID
+        if (strpos($request->order_id, 'payment_notif_test') !== false) {
+            return response()->json(['message' => 'Test notification successfully received'], 200);
+        }
+
+        // 2. Ambil Server Key untuk dicocokkan dengan Signature Key dari Midtrans
         $serverKey = env('MIDTRANS_SERVER_KEY');
         
-        // 2. Buat hash untuk verifikasi keamanan (Rumus standar Midtrans)
+        // 3. Buat hash untuk verifikasi keamanan (Rumus standar Midtrans)
         $hashed = hash('sha512', $request->order_id . $request->status_code . $request->gross_amount . $serverKey);
         
-        // 3. Pastikan request ini benar-benar datang dari Midtrans
+        // 4. Pastikan request ini benar-benar datang dari Midtrans
         if ($hashed == $request->signature_key) {
             
             // Cari pesanan di database berdasarkan UUID
             $order = Order::find($request->order_id);
             
             if ($order) {
-                // 4. Update status berdasarkan status transaksi dari Midtrans
+                // Update status berdasarkan status transaksi dari Midtrans
                 if ($request->transaction_status == 'capture' || $request->transaction_status == 'settlement') {
-                    $order->update(['status' => 'settlement']); // Lunas
+                    $order->update(['status' => 'settlement']); 
                 } elseif (in_array($request->transaction_status, ['expire', 'cancel', 'deny'])) {
-                    $order->update(['status' => 'failed']); // Gagal/Batal
+                    $order->update(['status' => 'failed']); 
                 }
             }
         }
         
-        // 5. Beri respons 200 OK ke Midtrans agar mereka tahu notifikasi berhasil diterima
+        // Beri respons 200 OK ke Midtrans
         return response()->json(['message' => 'Notification successfully processed']);
     }
 }
